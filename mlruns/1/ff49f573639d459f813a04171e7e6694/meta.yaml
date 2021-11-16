@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/elo/Code/eloisahernandez/TaxiFareModel/mlruns/1/ff49f573639d459f813a04171e7e6694/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '1'
+lifecycle_stage: active
+name: ''
+run_id: ff49f573639d459f813a04171e7e6694
+run_uuid: ff49f573639d459f813a04171e7e6694
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1637067924575
+status: 1
+tags: []
+user_id: unknown
