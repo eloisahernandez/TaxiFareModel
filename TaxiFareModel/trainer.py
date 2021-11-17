@@ -1,8 +1,12 @@
+import joblib
+from mlflow import sklearn
+from mlflow.sklearn import save_model
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+from sklearn.svm import LinearSVR
 
 from TaxiFareModel.encoders import DistanceTransformer, TimeFeaturesEncoder
 from TaxiFareModel.utils import compute_rmse
@@ -11,14 +15,17 @@ from TaxiFareModel.data import get_data, clean_data
 import mlflow
 from mlflow.tracking import MlflowClient
 from memoized_property import memoized_property
+import importlib
+
+
 
 
 class Trainer():
 
     MLFLOW_URI = "https://mlflow.lewagon.co/"
-    experiment_name = "[DE] [Munich] [eloisahernandez] TaxFareModel"
+    #experiment_name = "[DE] [Munich] [eloisahernandez] TaxFareModel"
 
-    def __init__(self, X, y):
+    def __init__(self, X, y, **kwargs):
         """
             X: pandas DataFrame
             y: pandas Series
@@ -26,8 +33,9 @@ class Trainer():
         self.pipeline = None
         self.X = X
         self.y = y
+        self.__dict__.update(**kwargs)
 
-    def set_pipeline(self):
+    def set_pipeline(self, **kwargs):
         """defines the pipeline as a class attribute"""
         dist_pipe = Pipeline([('dist_trans', DistanceTransformer()),
                               ('stdscaler', StandardScaler())])
@@ -39,14 +47,17 @@ class Trainer():
             'dropoff_longitude'
         ]), ('time', time_pipe, ['pickup_datetime'])],
                                          remainder="drop")
+        model_module = importlib.import_module(kwargs['model_module'])
+        model_class_ = getattr(model_module, kwargs['estimator'])
+        model_instance = model_class_()
         self.pipeline = Pipeline([('preproc', preproc_pipe),
-                         ('linear_model', LinearRegression())])
-        self.mlflow_log_param('model', 'LinearRegression')
+                                  (kwargs['estimator'], model_instance)])
+        self.mlflow_log_param('model', kwargs['estimator'])
 
 
-    def run(self):
+    def run(self, **kwargs):
         """set and train the pipeline"""
-        self.set_pipeline()
+        self.set_pipeline(**kwargs)
         self.pipeline.fit(self.X, self.y)
 
 
@@ -80,10 +91,30 @@ class Trainer():
     def mlflow_log_metric(self, key, value):
         self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
 
+    def save_model(self):
+        """ Save the trained model into a model.joblib file """
+        return joblib.dump(self.pipeline, 'model.joblib')
+
+
 
 if __name__ == "__main__":
+
+    params = dict(
+        nrows=100_000,  # number of samples
+        local=False,  # get data from AWS
+        optimize=True,
+        estimator="LinearSVR",
+        model_module = 'sklearn.svm',
+        mlflow=True,  # set to True to log params to mlflow
+        experiment_name="[DE] [Munich] [eloisahernandez] TaxFareModel",
+        pipeline_memory=None,
+        distance_type="manhattan",
+        feateng=[
+            "distance_to_center", "direction", "distance", "time_features",
+            "geohash"
+        ])
     # get data
-    df = get_data()
+    df = get_data(**params)
     # clean data
     df = clean_data(df)
     # set X and y
@@ -92,7 +123,8 @@ if __name__ == "__main__":
     # hold out
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.15)
     # train
-    trainer = Trainer(X_train, y_train)
-    trainer.run()
+    trainer = Trainer(X_train, y_train, **params)
+    trainer.run(**params)
     # evaluate
     print(trainer.evaluate(X_val, y_val))
+    trainer.save_model()
