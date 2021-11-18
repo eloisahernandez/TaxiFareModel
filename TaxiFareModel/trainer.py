@@ -1,3 +1,4 @@
+from google.cloud import storage
 import joblib
 from mlflow import sklearn
 from mlflow.sklearn import save_model
@@ -16,6 +17,7 @@ import mlflow
 from mlflow.tracking import MlflowClient
 from memoized_property import memoized_property
 import importlib
+import TaxiFareModel.gcparams as gcparams
 
 
 
@@ -91,9 +93,22 @@ class Trainer():
     def mlflow_log_metric(self, key, value):
         self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
 
+
+    def upload_model_to_gcp(self):
+        client = storage.Client()
+        bucket = client.bucket(gcparams.BUCKET_NAME)
+        blob = bucket.blob(gcparams.STORAGE_LOCATION)
+        blob.upload_from_filename('model.joblib')
+
     def save_model(self):
-        """ Save the trained model into a model.joblib file """
-        return joblib.dump(self.pipeline, 'model.joblib')
+        """method that saves the model into a .joblib file and uploads it on Google Storage /models folder"""
+        joblib.dump(self.pipeline, 'model.joblib')
+        print("saved model.joblib locally")
+
+        self.upload_model_to_gcp()
+        print(
+        f"uploaded model.joblib to gcp cloud storage under \n => {gcparams.STORAGE_LOCATION}"
+        )
 
 
 
