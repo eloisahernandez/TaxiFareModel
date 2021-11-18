@@ -1,11 +1,13 @@
 import pandas as pd
+import gcparams
 
-AWS_BUCKET_PATH = "s3://wagon-public-datasets/taxi-fare-train.csv"
+#AWS_BUCKET_PATH = "s3://wagon-public-datasets/taxi-fare-train.csv"
 
 
 def get_data(**kwargs):
     '''returns a DataFrame with nrows from s3 bucket'''
-    df = pd.read_csv(AWS_BUCKET_PATH, nrows = kwargs['nrows'])
+    df = pd.read_csv(f"gs://{gcparams.BUCKET_NAME}/{gcparams.BUCKET_TRAIN_DATA_PATH}",
+                     nrows=1000)
     return df
 
 
